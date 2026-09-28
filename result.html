@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RideFare · Fare Estimate</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="topbar"><div class="brand"><span class="dot"></span> RideFare</div>
+<div class="nav-links">
+<a href="{{ url_for('home') }}">Home</a><a href="{{ url_for('book') }}">Book</a><a href="{{ url_for('history') }}">History</a><a href="{{ url_for('profile') }}">Profile</a><a href="{{ url_for('complaints') }}">Support</a>{% if session.get("user") == config.get("ADMIN_USERNAME","admin") %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}<a href="{{ url_for('logout') }}">Log out</a>
+</div></div>
+<main class="page page-result">
+<section class="card result-card">
+<div class="result-top">
+<div><span class="eyebrow">AI FARE ESTIMATE</span><p class="subtitle">{{ vehicle }} · {{ distance }} km · {{ passengers }} passenger{{ 's' if passengers != 1 else '' }}</p></div>
+<div class="status-pill">● Estimate ready</div>
+</div>
+<div class="fare-hero result-hero"><div class="fare-amount">₹{{ prediction }}</div><span class="badge">Random Forest · R² {{ accuracy }}%</span><p class="muted">Estimated travel time: ~{{ estimated_time }} min</p></div>
+
+<div class="result-grid">
+<div class="result-section"><h3>Trip details</h3>
+<div class="detail-list result-details">
+<div class="detail-row"><span class="k">Rider</span><span class="v">{{ name }}</span></div>
+<div class="detail-row"><span class="k">Phone</span><span class="v">{{ phone }}</span></div>
+<div class="detail-row"><span class="k">Pickup</span><span class="v">{{ pickup_name }}</span></div>
+<div class="detail-row"><span class="k">Drop</span><span class="v">{{ drop_name }}</span></div>
+<div class="detail-row"><span class="k">Vehicle</span><span class="v">{{ vehicle }} · {{ ac_type }}</span></div>
+</div></div>
+
+<div class="result-section"><h3>Fare breakdown</h3>
+<div class="breakdown-list">
+{% for key, value in fare_breakdown.items() %}<div class="breakdown-row"><span>{{ key }}</span><strong>{% if key == 'Vehicle factor' %}× {{ value }}{% else %}₹{{ '%.2f'|format(value) }}{% endif %}</strong></div>{% endfor %}
+</div></div>
+</div>
+
+<div class="result-actions">
+{% if ride_id %}<a href="{{ url_for('payment', ride_id=ride_id) }}" class="btn result-primary">Continue to secure payment</a>{% endif %}
+<a href="{{ url_for('book') }}" class="btn secondary result-secondary">Modify / book another</a>
+</div>
+<p class="footer-note result-note">ML prediction is an estimate. Final trip cost can vary in a real-world deployment based on traffic, tolls and demand.</p>
+</section>
+</main>
+<script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body></html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign in · RideFare</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+
+  <div class="center-wrap">
+    <div class="card auth-card">
+
+      <div class="brand" style="margin-bottom: 22px;">
+        <span class="dot"></span> RideFare
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for m in messages %}
+            <div class="flash">{{ m }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="tabs">
+        <button type="button" class="tab-btn active" id="tab-login" onclick="showTab('login')">Log in</button>
+        <button type="button" class="tab-btn" id="tab-register" onclick="showTab('register')">Register</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form method="POST" class="stack" id="form-login">
+        <input type="hidden" name="action" value="login" />
+
+        <div>
+          <label>Username</label>
+          <input type="text" name="username" required autocomplete="username" />
+        </div>
+
+        <div>
+          <label>Password</label>
+          <input type="password" name="password" required autocomplete="current-password" />
+        </div>
+
+        <button type="submit" class="btn block">Log in</button>
+
+        <a href="{{ url_for('forgot_password') }}" style="text-align:center; font-size:0.85rem; color: var(--muted); text-decoration:none; margin-top: 2px;">
+          Forgot your password?
+        </a>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form method="POST" class="stack" id="form-register" style="display:none;">
+        <input type="hidden" name="action" value="register" />
+
+        <div>
+          <label>Username</label>
+          <input type="text" name="username" required autocomplete="username" />
+        </div>
+
+        <div>
+          <label>Email</label>
+          <input type="email" name="email" required autocomplete="email" />
+        </div>
+
+        <div>
+          <label>Phone (optional)</label>
+          <input type="tel" name="phone" autocomplete="tel" />
+        </div>
+
+        <div>
+          <label>Password</label>
+          <input type="password" name="password" required autocomplete="new-password" />
+        </div>
+
+        <button type="submit" class="btn block">Create account</button>
+      </form>
+
+    </div>
+  </div>
+
+  <script>
+    function showTab(which) {
+      const isLogin = which === 'login';
+
+      document.getElementById('tab-login').classList.toggle('active', isLogin);
+      document.getElementById('tab-register').classList.toggle('active', !isLogin);
+
+      document.getElementById('form-login').style.display = isLogin ? 'flex' : 'none';
+      document.getElementById('form-register').style.display = isLogin ? 'none' : 'flex';
+    }
+  </script>
+
+  <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>

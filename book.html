@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RideFare · Book a ride</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> RideFare</div>
+    <div>
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('book') }}">Book a ride</a>
+      <a href="{{ url_for('history') }}">History</a>
+      <a href="{{ url_for('complaints') }}">Support</a>
+      <a href="{{ url_for('profile') }}">Profile</a>{% if session.get("user") == config.get("ADMIN_USERNAME", "admin") %} <a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="card">
+      <h1>Book a ride</h1>
+      <p class="subtitle">Enter pickup and drop locations or select them directly on the map.</p>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="grid-2 location-search-grid">
+        <div class="location-search-box">
+          <label for="pickupSearch">Pickup Location</label>
+          <input type="text" id="pickupSearch" placeholder="Enter pickup location" autocomplete="off" />
+          <div id="pickupResults" class="location-results"></div>
+        </div>
+        <div class="location-search-box">
+          <label for="dropSearch">Drop Location</label>
+          <input type="text" id="dropSearch" placeholder="Enter drop location" autocomplete="off" />
+          <div id="dropResults" class="location-results"></div>
+        </div>
+      </div>
+
+      <div id="map"></div>
+      <p class="map-hint">🟢 first click = pickup &nbsp;•&nbsp; 🟠 second click = drop &nbsp;•&nbsp; click again to start over</p>
+
+      <div class="loc-row"><span class="dot pickup"></span> Pickup: <span class="val" id="pickup-label">not set</span></div>
+      <div class="loc-row"><span class="dot drop"></span> Drop: <span class="val" id="drop-label">not set</span></div>
+
+      <form method="POST" action="{{ url_for('predict') }}" class="stack" id="ride-form">
+        <input type="hidden" name="pickup" id="pickup-coords" />
+        <input type="hidden" name="drop" id="drop-coords" />
+        <input type="hidden" name="pickup_name" id="pickup-name" />
+        <input type="hidden" name="drop_name" id="drop-name" />
+
+        <div class="grid-2">
+          <div><label>Your name</label><input type="text" name="name" required /></div>
+          <div><label>Phone number</label><input type="tel" name="phone" placeholder="10-digit mobile" pattern="[6-9][0-9]{9}" maxlength="10" required /></div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label>Vehicle</label>
+            <select name="vehicle" id="vehicle" required>
+              <option value="">Select vehicle</option>
+              <option value="Bike">Bike</option>
+              <option value="Scooty">Scooty</option>
+              <option value="Auto">Auto</option>
+              <option value="Uber Go">Uber Go</option>
+              <option value="Go Non AC">Go Non AC</option>
+              <option value="Premier">Premier</option>
+              <option value="Uber XL">Uber XL</option>
+            </select>
+          </div>
+          <div><label>Passengers</label><input type="number" name="passengers" id="passengers" min="1" max="6" value="1" required /></div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label>AC Type</label>
+            <select name="ac_type" id="ac_type">
+              <option value="Non-AC">Non-AC</option>
+              <option value="AC">AC</option>
+            </select>
+          </div>
+          <div class="field-note-wrap">
+            <label>&nbsp;</label>
+            <div class="map-hint field-note" id="ac-hint">Bike, Scooty and Auto use Non-AC automatically.</div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn block">Get fare estimate</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([12.9716, 77.5946], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+
+    let pickupMarker = null, dropMarker = null;
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+        const data = await res.json();
+        return data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      } catch (e) { return `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
+    }
+
+    async function searchLocation(query) {
+      if (!query || query.trim().length < 2) return [];
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Bengaluru')}&limit=5&countrycodes=in`;
+        const response = await fetch(url);
+        return await response.json();
+      } catch (e) { return []; }
+    }
+
+    function setLocation(type, lat, lon, name) {
+      const coords = `${lon},${lat}`;
+      const isPickup = type === 'pickup';
+      const marker = isPickup ? pickupMarker : dropMarker;
+      if (marker) map.removeLayer(marker);
+      const newMarker = L.marker([lat, lon], { title: isPickup ? 'Pickup' : 'Drop' }).addTo(map);
+      newMarker.bindPopup(`<b>${isPickup ? 'Pickup' : 'Drop'}</b><br>${name}`).openPopup();
+      if (isPickup) {
+        pickupMarker = newMarker;
+        document.getElementById('pickup-coords').value = coords;
+        document.getElementById('pickup-name').value = name;
+        document.getElementById('pickup-label').textContent = name;
+        document.getElementById('pickupSearch').value = name;
+      } else {
+        dropMarker = newMarker;
+        document.getElementById('drop-coords').value = coords;
+        document.getElementById('drop-name').value = name;
+        document.getElementById('drop-label').textContent = name;
+        document.getElementById('dropSearch').value = name;
+      }
+      map.setView([lat, lon], 14);
+    }
+
+    function showResults(results, container, type) {
+      container.innerHTML = '';
+      if (!results.length) { container.innerHTML = '<div class="location-no-result">Location not found</div>'; return; }
+      results.forEach(place => {
+        const item = document.createElement('div');
+        item.className = 'location-result-item';
+        item.textContent = place.display_name;
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          setLocation(type, parseFloat(place.lat), parseFloat(place.lon), place.display_name);
+          container.innerHTML = '';
+        });
+        container.appendChild(item);
+      });
+    }
+
+    async function doSearch(input, resultsBox, type) {
+      const results = await searchLocation(input.value);
+      showResults(results, resultsBox, type);
+    }
+
+    const pickupSearch = document.getElementById('pickupSearch');
+    const dropSearch = document.getElementById('dropSearch');
+    const pickupResults = document.getElementById('pickupResults');
+    const dropResults = document.getElementById('dropResults');
+
+    pickupSearch.addEventListener('keydown', async e => { if (e.key === 'Enter') { e.preventDefault(); const r = await searchLocation(pickupSearch.value); if (r[0]) setLocation('pickup', parseFloat(r[0].lat), parseFloat(r[0].lon), r[0].display_name); } });
+    dropSearch.addEventListener('keydown', async e => { if (e.key === 'Enter') { e.preventDefault(); const r = await searchLocation(dropSearch.value); if (r[0]) setLocation('drop', parseFloat(r[0].lat), parseFloat(r[0].lon), r[0].display_name); } });
+    pickupSearch.addEventListener('blur', () => setTimeout(() => doSearch(pickupSearch, pickupResults, 'pickup'), 150));
+    dropSearch.addEventListener('blur', () => setTimeout(() => doSearch(dropSearch, dropResults, 'drop'), 150));
+
+    map.on('click', async function(e) {
+      const { lat, lng } = e.latlng;
+      const name = await reverseGeocode(lat, lng);
+      if (!pickupMarker) setLocation('pickup', lat, lng, name);
+      else if (!dropMarker) setLocation('drop', lat, lng, name);
+      else {
+        map.removeLayer(pickupMarker); map.removeLayer(dropMarker);
+        pickupMarker = null; dropMarker = null;
+        document.getElementById('pickup-coords').value = '';
+        document.getElementById('drop-coords').value = '';
+        document.getElementById('pickup-name').value = '';
+        document.getElementById('drop-name').value = '';
+        document.getElementById('pickup-label').textContent = 'not set';
+        document.getElementById('drop-label').textContent = 'not set';
+        pickupSearch.value = ''; dropSearch.value = '';
+        setLocation('pickup', lat, lng, name);
+      }
+    });
+
+    const vehicle = document.getElementById('vehicle');
+    const passengers = document.getElementById('passengers');
+    const acType = document.getElementById('ac_type');
+    const acOption = acType.querySelector('option[value="AC"]');
+
+    vehicle.addEventListener('change', function() {
+      const limits = { Bike: 1, Scooty: 1, Auto: 3, 'Uber Go': 4, 'Go Non AC': 4, Premier: 4, 'Uber XL': 6 };
+      const limit = limits[this.value] || 6;
+      passengers.max = limit;
+      if (parseInt(passengers.value) > limit) passengers.value = limit;
+
+      const fixedNonAc = ['Bike', 'Scooty', 'Auto'].includes(this.value);
+      if (fixedNonAc) {
+        acType.value = 'Non-AC';
+        acOption.disabled = true;
+      } else {
+        acOption.disabled = false;
+      }
+    });
+
+    document.getElementById('ride-form').addEventListener('submit', function(e) {
+      const pickup = document.getElementById('pickup-coords').value;
+      const drop = document.getElementById('drop-coords').value;
+      if (!pickup || !drop) { e.preventDefault(); alert('Please enter or select both Pickup and Drop locations.'); }
+    });
+  </script>
+  <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>

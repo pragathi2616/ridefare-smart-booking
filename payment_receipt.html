@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RideFare · Booking Confirmation</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body>
+<div class="topbar"><div class="brand"><span class="dot"></span> RideFare</div><div class="nav-links">
+<a href="{{ url_for('home') }}">Home</a><a href="{{ url_for('book') }}">Book</a><a href="{{ url_for('history') }}">History</a><a href="{{ url_for('profile') }}">Profile</a><a href="{{ url_for('complaints') }}">Support</a><a href="{{ url_for('logout') }}">Log out</a></div></div>
+<main class="page page-receipt"><section class="card receipt-card">
+{% if p[4] == 'success' %}
+<div class="success-mark">✓</div><span class="eyebrow">BOOKING CONFIRMED</span><h1>Payment successful</h1><p class="subtitle">Your demo ride is confirmed and a driver has been assigned.</p>
+<div class="receipt-fare">₹{{ p[1] }}</div>
+<div class="driver-card"><div class="driver-icon">🚕</div><div><span>Demo driver</span><strong>{{ p[12] or 'Assigning driver' }}</strong><small>{{ p[13] or 'Contact hidden in demo' }} · ETA {{ p[14] or '—' }} min</small></div><span class="status-pill">● Assigned</span></div>
+{% else %}
+<div class="failure-mark">×</div><span class="eyebrow">PAYMENT STATUS</span><h1>Payment failed</h1><p class="subtitle">No charge was made. You can return to History and retry.</p>
+{% endif %}
+<div class="receipt-grid">
+<div><span>Transaction ID</span><strong>{{ p[5] }}</strong></div><div><span>Method</span><strong>{{ p[2]|upper }}{% if p[3] %} ···· {{ p[3] }}{% endif %}</strong></div>
+<div><span>Vehicle</span><strong>{{ p[7] }}</strong></div><div><span>Distance</span><strong>{{ p[10] }} km</strong></div>
+<div class="wide"><span>Route</span><strong>{{ p[8] }} → {{ p[9] }}</strong></div><div><span>Status</span><strong>{{ p[11] }}</strong></div><div><span>Date</span><strong>{{ p[6] }} UTC</strong></div>
+</div>
+<div class="receipt-actions">{% if p[4]=='success' %}<a href="{{ url_for('ride_details', ride_id=p[15]) }}" class="btn">View ride</a><a href="{{ url_for('feedback', ride_id=p[15]) }}" class="btn secondary">Give feedback</a>{% else %}<a href="{{ url_for('payment', ride_id=p[15]) }}" class="btn">Retry payment</a>{% endif %}<a href="{{ url_for('history') }}" class="btn secondary">Ride history</a></div>
+<p class="footer-note">Sandbox confirmation for academic demonstration only.</p>
+</section></main><script src="{{ url_for('static', filename='chat.js') }}"></script></body></html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RideFare · Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> RideFare</div>
+    <div>
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('book') }}">Book a ride</a>
+      <a href="{{ url_for('history') }}">History</a>
+      <a href="{{ url_for('complaints') }}">Support</a>
+      <a href="{{ url_for('profile') }}">Profile</a>{% if session.get("user") == config.get("ADMIN_USERNAME", "admin") %} <a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </div>
+  </div>
+
+  <div class="page">
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for m in messages %}
+          <div class="flash">{{ m }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card" style="margin-bottom: 20px;">
+      <h1>{{ username }}</h1>
+      <p class="subtitle">{{ ride_count }} ride{{ 's' if ride_count != 1 else '' }} booked so far</p>
+
+      <form method="POST" class="stack">
+        <input type="hidden" name="form_type" value="details" />
+
+        <div>
+          <label>Username</label>
+          <input type="text" value="{{ username }}" disabled />
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label>Email</label>
+            <input type="email" name="email" value="{{ email or '' }}" required />
+          </div>
+          <div>
+            <label>Phone</label>
+            <input type="tel" name="phone" value="{{ phone or '' }}" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn block">Save details</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-bottom: 18px;">Change password</h2>
+
+      <form method="POST" class="stack">
+        <input type="hidden" name="form_type" value="password" />
+
+        <div>
+          <label>Current password</label>
+          <input type="password" name="current_password" required autocomplete="current-password" />
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label>New password</label>
+            <input type="password" name="new_password" required autocomplete="new-password" />
+          </div>
+          <div>
+            <label>Confirm new password</label>
+            <input type="password" name="confirm_password" required autocomplete="new-password" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn secondary block">Update password</button>
+      </form>
+    </div>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>
